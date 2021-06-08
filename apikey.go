@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -212,6 +213,7 @@ func makeClient(url, user, pass string, nconns int) (*elasticsearch.Client, erro
 		IdleConnTimeout:       60 * time.Second,
 		ResponseHeaderTimeout: time.Minute,
 		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 
 	// Create a elastic cluster client
@@ -304,7 +306,7 @@ func createKeys(es *elasticsearch.Client, nconns, nkeys int) ([]ApiKey, error) {
 	for i := 1; i <= nkeys; i++ {
 		key := <-outCh
 		keys = append(keys, key)
-		if i%500 == 0 || time.Since(last) >= (time.Second*5) {
+		if i%1000 == 0 || time.Since(last) >= (time.Second*10) {
 			fmt.Printf("%v %v/%v\n", time.Now().Format("3:04:05PM"), i, nkeys)
 			last = time.Now()
 		}
@@ -353,7 +355,7 @@ func burstAuth(es *elasticsearch.Client, keys []ApiKey, nconns int) error {
 	last := time.Now()
 	for i := 1; i <= nkeys; i++ {
 		<-outCh
-		if i%500 == 0 || time.Since(last) >= (time.Second*5) {
+		if i%1000 == 0 || time.Since(last) >= (time.Second*10) {
 			fmt.Printf("%v %v/%v\n", time.Now().Format("3:04:05PM"), i, nkeys)
 			last = time.Now()
 		}
@@ -391,7 +393,7 @@ func main() {
 	tdiff := time.Since(start)
 	fmt.Printf("Create %d keys in %v.  Average: %v\n", len(keys), tdiff, tdiff/time.Duration(len(keys)))
 
-	nBursts := 5
+	nBursts := 3
 	for i := 0; i < nBursts; i++ {
 		fmt.Printf("-----Burst Auth Pass %d/%d\n", i+1, nBursts)
 		start = time.Now()
